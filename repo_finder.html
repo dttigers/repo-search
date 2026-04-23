@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Repo Finder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e17; --surface: #111827; --border: #1e2d40;
+    --accent: #00d4ff; --accent2: #7c3aed; --green: #22c55e;
+    --yellow: #f59e0b; --text: #e2e8f0; --muted: #64748b;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; padding: 24px 16px; }
+  h1 { font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+  .subtitle { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); margin-bottom: 24px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+  label { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  select, input[type="text"] { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; padding: 8px 10px; border-radius: 6px; outline: none; transition: border-color 0.2s; width: 100%; }
+  select:focus, input:focus { border-color: var(--accent); }
+  .search-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .search-row input { flex: 1; }
+  button { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem; padding: 8px 20px; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .tag { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all 0.15s; user-select: none; }
+  .tag.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.08); }
+  .status { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); margin-bottom: 12px; min-height: 18px; }
+  .status.loading { color: var(--accent); }
+  .status.error { color: #ef4444; }
+  .results { display: flex; flex-direction: column; gap: 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; transition: border-color 0.2s; }
+  .card:hover { border-color: var(--accent); }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .repo-name { font-weight: 700; font-size: 0.95rem; color: var(--accent); text-decoration: none; word-break: break-word; }
+  .repo-name:hover { text-decoration: underline; }
+  .score-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; padding: 3px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .score-high { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .score-mid { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+  .score-low { background: rgba(100,116,139,0.1); color: var(--muted); border: 1px solid var(--border); }
+  .description { font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; line-height: 1.5; }
+  .meta { display: flex; flex-wrap: wrap; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .chip { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; padding: 2px 7px; border-radius: 4px; background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+  .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+  .page-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 0.75rem; padding: 6px 14px; }
+  .page-btn.active { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<h1>// REPO FINDER</h1>
+<p class="subtitle">$ find open-source projects worth contributing to</p>
+
+<div class="filters">
+  <div class="filter-group">
+    <label>Language</label>
+    <select id="lang">
+      <option value="">Any</option>
+      <option value="javascript">JavaScript</option>
+      <option value="typescript">TypeScript</option>
+      <option value="python">Python</option>
+      <option value="swift">Swift</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Sort By</label>
+    <select id="sort">
+      <option value="stars">Stars</option>
+      <option value="updated">Recently Updated</option>
+      <option value="help-wanted-issues">Most Help Wanted</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Min Stars</label>
+    <select id="minstars">
+      <option value="10">10+</option>
+      <option value="100">100+</option>
+      <option value="500">500+</option>
+      <option value="0">Any</option>
+    </select>
+  </div>
+</div>
+
+<div style="margin-bottom:10px">
+  <label style="display:block;margin-bottom:6px">Quick Topics (click to toggle)</label>
+  <div class="tags" id="tagRow">
+    <span class="tag active" data-topic="hacktoberfest">hacktoberfest</span>
+    <span class="tag active" data-topic="good-first-issue">good-first-issue</span>
+    <span class="tag" data-topic="nonprofit">nonprofit</span>
+    <span class="tag" data-topic="social-good">social-good</span>
+    <span class="tag" data-topic="ai">ai</span>
+    <span class="tag" data-topic="machine-learning">machine-learning</span>
+    <span class="tag" data-topic="developer-tools">developer-tools</span>
+    <span class="tag" data-topic="open-source">open-source</span>
+  </div>
+</div>
+
+<div class="search-row">
+  <input type="text" id="keyword" placeholder="Extra keyword (optional)..." />
+  <button id="searchBtn" onclick="doSearch()">Search</button>
+</div>
+
+<div class="status" id="status">Select topics above and hit Search.</div>
+<div class="results" id="results"><div class="empty">Your repos will appear here ↑</div></div>
+<div class="pagination" id="pagination"></div>
+
+<script>
+  document.querySelectorAll('.tag').forEach(t => {
+    t.addEventListener('click', () => t.classList.toggle('active'));
+  });
+
+  function contributorScore(repo) {
+    let score = 0;
+    const topics = repo.topics || [];
+    if (topics.includes('hacktoberfest')) score += 30;
+    if (topics.includes('good-first-issue')) score += 25;
+    if (topics.includes('help-wanted')) score += 20;
+    if (repo.has_issues) score += 10;
+    const monthsOld = (Date.now() - new Date(repo.updated_at)) / (1000*60*60*24*30);
+    if (monthsOld < 1) score += 20;
+    else if (monthsOld < 3) score += 10;
+    else if (monthsOld < 6) score += 5;
+    if (repo.open_issues_count > 0 && repo.open_issues_count < 50) score += 10;
+    if (repo.stargazers_count > 100) score += 5;
+    if (repo.stargazers_count > 1000) score += 5;
+    return Math.min(score, 100);
+  }
+
+  function scoreLabel(s) {
+    if (s >= 60) return ['🟢 Great fit', 'score-high'];
+    if (s >= 35) return ['🟡 Worth checking', 'score-mid'];
+    return ['⚪ Low activity', 'score-low'];
+  }
+
+  async function doSearch(page = 1) {
+    const activeTags = [...document.querySelectorAll('.tag.active')].map(t => t.dataset.topic);
+    const keyword = document.getElementById('keyword').value.trim();
+    const lang = document.getElementById('lang').value;
+    const sort = document.getElementById('sort').value;
+    const minStars = document.getElementById('minstars').value;
+
+    if (activeTags.length === 0 && !keyword) {
+      document.getElementById('status').textContent = 'Pick at least one topic or enter a keyword.';
+      return;
+    }
+
+    let q = activeTags.map(t => `topic:${t}`).join(' ');
+    if (keyword) q += ` ${keyword} in:name,description`;
+    if (lang) q += ` language:${lang}`;
+    if (minStars && minStars !== '0') q += ` stars:>=${minStars}`;
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    const statusEl = document.getElementById('status');
+    statusEl.className = 'status loading';
+    statusEl.textContent = '⟳ Searching GitHub...';
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('pagination').innerHTML = '';
+
+    try {
+      const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=${sort}&order=desc&per_page=10&page=${page}`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github.mercy-preview+json' } });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || `HTTP ${res.status}`); }
+      const data = await res.json();
+      const repos = data.items || [];
+      const total = data.total_count || 0;
+
+      statusEl.className = 'status';
+      statusEl.textContent = `Found ~${total.toLocaleString()} repos — page ${page}`;
+
+      if (repos.length === 0) {
+        document.getElementById('results').innerHTML = '<div class="empty">No results. Try different topics or keywords.</div>';
+        return;
+      }
+
+      const container = document.getElementById('results');
+      repos.forEach(repo => {
+        const score = contributorScore(repo);
+        const [label, cls] = scoreLabel(score);
+        const updated = new Date(repo.updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const topics = (repo.topics || []).slice(0, 6);
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-header">
+            <a class="repo-name" href="${repo.html_url}" target="_blank">${repo.full_name}</a>
+            <span class="score-badge ${cls}">${label}</span>
+          </div>
+          <p class="description">${repo.description || 'No description provided.'}</p>
+          <div class="meta">
+            <span>⭐ ${repo.stargazers_count.toLocaleString()}</span>
+            <span>🍴 ${repo.forks_count.toLocaleString()}</span>
+            <span>🐛 ${repo.open_issues_count} open issues</span>
+            <span>📅 Updated ${updated}</span>
+            ${repo.language ? `<span>💻 ${repo.language}</span>` : ''}
+          </div>
+          ${topics.length ? `<div class="chip-row">${topics.map(t => `<span class="chip">${t}</span>`).join('')}</div>` : ''}
+        `;
+        container.appendChild(card);
+      });
+
+      const totalPages = Math.min(Math.ceil(total / 10), 10);
+      if (totalPages > 1) {
+        const pg = document.getElementById('pagination');
+        for (let p = 1; p <= totalPages; p++) {
+          const b = document.createElement('button');
+          b.className = `page-btn ${p === page ? 'active' : ''}`;
+          b.textContent = p;
+          b.onclick = () => doSearch(p);
+          pg.appendChild(b);
+        }
+      }
+    } catch (e) {
+      statusEl.className = 'status error';
+      statusEl.textContent = `Error: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
